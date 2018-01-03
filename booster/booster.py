@@ -171,14 +171,13 @@ stop_after_n_iterations_without_percent_improvement_over_threshold = stop_after_
 
 class GradientBoostingEstimator(BaseDelegatingEstimator):
     def __init__(self, base_estimator, loss_function, learning_rate=.1, n_estimators=100,
-                 stopper=never_stop_early, verbose=0, extra_fit=False):
+                 stopper=never_stop_early, verbose=0):
         self.base_estimator = base_estimator
         self.loss_function = loss_function
         self.learning_rate = learning_rate
         self.n_estimators = n_estimators
         self.stopper = stopper
         self.verbose = verbose
-        self.extra_fit = extra_fit
         
     def fit(self, X, y, sample_weight=None, exposure=None, previous_prediction=None):
         
@@ -240,43 +239,21 @@ class GradientBoostingEstimator(BaseDelegatingEstimator):
                 raise
             if self.verbose >= 1:
                 print('Fitting for estimator %d complete.' % (iteration + 1))
-#             approx_gradient = estimator.predict(**predict_args)
-#             prediction_cv += alpha * approx_gradient_cv
-#             loss_cv = loss_function(prediction_cv)
-            
-            if self.extra_fit:
-                transform_args = {'X': X}
-                if exposure is not None:
-                    transform_args['exposure'] = exposure 
-                extra_fit_args = {'X': estimator.transform(**transform_args), 'y': y, 'previous_prediction': prediction}
-                if sample_weight is not None:
-                    extra_fit_args['sample_weight'] = sample_weight
-                extra_predict_args = dissoc(extra_fit_args, 'y', 'previous_prediction')
-                extra_estimator = GradientBoostingEstimator(LinearRegression(), loss_function=self.loss_function,
-                                                            stopper=stop_after_n_iterations_without_percent_improvement_over_threshold(1, .001))
-                extra_estimator.fit(**valmap(shrinkd(1), extra_fit_args))
-                prediction += extra_estimator.decision_function(**extra_predict_args)
-                loss = loss_function(prediction)
-                coefficients.append(1.)
-                estimators.append((AlreadyFittedEstimator(estimator) >> AlreadyFittedEstimator(extra_estimator)).fit(X,y))
-                losses.append(loss)
-            else:
-#                 loss_grad = lambda pred: -self.loss_function.negative_gradient(pred=pred, **valmap(shrinkd(1), partial_arguments))
-                if self.verbose >= 1:
-                    print('Computing alpha for estimator %d...' % (iteration + 1))
+            if self.verbose >= 1:
+                print('Computing alpha for estimator %d...' % (iteration + 1))
 #                 alpha, _, _, _, _, _ = line_search(loss_function, loss_grad, shrinkd(1, prediction), shrinkd(1,gradient))
-                alpha = zoom_search(golden_section_search(1e-16), zoom(1., 20, 2.), loss_function, prediction, approx_gradient)
-                alpha *= self.learning_rate
-                if self.verbose >= 1:
-                    print('alpha = %f' % alpha)
-                if self.verbose >= 1:
-                    print('Computing alpha for estimator %d complete.' % (iteration + 1))
-            
-                prediction += alpha * approx_gradient
-                loss = loss_function(prediction)
-                coefficients.append(alpha)
-                estimators.append(estimator)
-                losses.append(loss)
+            alpha = zoom_search(golden_section_search(1e-16), zoom(1., 20, 2.), loss_function, prediction, approx_gradient)
+            alpha *= self.learning_rate
+            if self.verbose >= 1:
+                print('alpha = %f' % alpha)
+            if self.verbose >= 1:
+                print('Computing alpha for estimator %d complete.' % (iteration + 1))
+        
+            prediction += alpha * approx_gradient
+            loss = loss_function(prediction)
+            coefficients.append(alpha)
+            estimators.append(estimator)
+            losses.append(loss)
 #                 losses_cv.append(loss_cv)
             if self.verbose >= 1:
                 print('Loss after %d iterations is %f, a reduction of %f%%.' % (iteration + 1, loss, 100*(previous_loss - loss)/float(previous_loss)))
