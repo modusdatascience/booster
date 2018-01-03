@@ -6,3 +6,7 @@ dependencies:
     - sympy
     - scikit-learn
     - six
+    - pandas
+    - pip:
+        - toolz
+        - sklearn-contrib-py-earth
