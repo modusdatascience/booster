@@ -1,125 +1,19 @@
-from sklearn.base import clone
-from toolz.dicttoolz import valmap, dissoc
+from sklearn.base import clone, BaseEstimator
+from toolz.dicttoolz import valmap
 from .line_search import golden_section_search, zoom_search, zoom
-import numpy as np
-from sklearn.ensemble.gradient_boosting import RegressionLossFunction,\
-    QuantileEstimator, QuantileLossFunction, ExponentialLoss,\
-    ScaledLogOddsEstimator
 from operator import __sub__, __lt__
 from toolz.itertoolz import sliding_window
 from itertools import starmap
 from toolz.functoolz import flip, curry
 from sklearn.exceptions import NotFittedError
-from distutils.version import LooseVersion
-import sklearn
-from types import MethodType
-from sklearn.linear_model.base import LinearRegression
-from scipy.optimize.linesearch import line_search
-import traceback
-from sklearntoolsbase.base import BaseDelegatingEstimator, growd, shrinkd,\
-    fit_predict, AlreadyFittedEstimator, LinearCombination
-
-# Patch over bug in scikit-learn (issue #9539)
-if LooseVersion(sklearn.__version__) <= LooseVersion('0.18.2'):
-    def __call__(self, y, pred, sample_weight=None):
-        pred = pred.ravel()
-        diff = y - pred
-        alpha = self.alpha
+from sklearntoolsbase.sklearntoolsbase import growd, shrinkd,\
+    fit_predict, LinearCombination, notnone
     
-        mask = y > pred
-        if sample_weight is None:
-            loss = (alpha * diff[mask].sum() -
-                    (1.0 - alpha) * diff[~mask].sum()) / y.shape[0]
-        else:
-            loss = ((alpha * np.sum(sample_weight[mask] * diff[mask]) -
-                    (1.0 - alpha) * np.sum(sample_weight[~mask] * diff[~mask])) /
-                    sample_weight.sum())
-        return loss
-    QuantileLossFunction.__call__ = MethodType(__call__, None, QuantileLossFunction)
-
-
-if LooseVersion(sklearn.__version__) <= LooseVersion('0.19.1'):
-    def negative_gradient(self, y, pred, **kargs):
-        y_ = -(2. * y - 1.)
-        return - y_ * np.exp(y_ * pred.ravel())
-    try:
-        ExponentialLoss.negative_gradient = MethodType(negative_gradient, None, ExponentialLoss)
-    except TypeError:
-        ExponentialLoss.negative_gradient = negative_gradient
-
-
-def log_one_plus_exp_x(x):
-    lower = -10.
-    upper = 35.
-    result = np.zeros_like(x)
-    low_idx = x < lower
-    result[low_idx] = np.exp(x[low_idx])
-    high_idx = x > upper
-    result[high_idx] = x[high_idx]
-    middle_idx = ~(low_idx | high_idx)
-    result[middle_idx] = np.log(1+np.exp(x[middle_idx]))
-    return result
-
-def one_over_one_plus_exp_x(x):
-    lower = -100.
-    upper = 100.
-    result = np.zeros_like(x)
-    low_idx = x < lower
-    result[low_idx] = 1.
-    high_idx = x > upper
-    result[high_idx] = 0.
-    middle_idx = ~(low_idx | high_idx)
-    result[middle_idx] = 1. / (1. + np.exp(x[middle_idx]))
-    return result
-
-class STExponentialLossFunction(object):
-    def init_estimator(self):
-        return ScaledLogOddsEstimator()
-    
-    def __call__(self, y, pred, sample_weight=None):
-        print(y)
-        print(pred)
-        pred = pred.ravel()
-        if sample_weight is None:
-            return np.exp(- y * pred)
-        else:
-            return np.sum(sample_weight * np.exp(- y * pred))
-    
-    def negative_gradient(self, y, pred, sample_weight=None, **kargs):
-        result = - y * np.exp(- y * pred.ravel())
-        if sample_weight is not None:
-            return sample_weight * result
-        return result
-#         y_ = -(2. * y - 1.)
-#         return y_ * np.exp(y_ * pred.ravel()) 
-    
-class SmoothQuantileLossFunction(RegressionLossFunction):
-    def __init__(self, n_classes, tau, alpha):
-        super(SmoothQuantileLossFunction, self).__init__(n_classes)
-        self.tau = tau
-        self.alpha = alpha
-    
-    def init_estimator(self):
-        return QuantileEstimator(self.tau)
-    
-    def __call__(self, y, pred, sample_weight=None):
-        x = y - pred
-#         n = float(y.shape[0])
-        if sample_weight is not None:
-            return np.dot(sample_weight, (self.tau * x + self.alpha * log_one_plus_exp_x(-(1./self.alpha)*x)))
-        else:
-            return np.sum(self.tau * x + self.alpha * log_one_plus_exp_x(-(1./self.alpha)*x))
-    
-    def negative_gradient(self, y, pred, sample_weight=None):
-        x =  y - pred
-#         n = float(y.shape[0])
-        if sample_weight is not None:
-            return  sample_weight * (self.tau - one_over_one_plus_exp_x((1. / self.alpha) * x))
-        else:
-            return (self.tau - one_over_one_plus_exp_x((1. / self.alpha) * x))
-        
-    def _update_terminal_region(self, *args, **kwargs):
-        raise NotImplementedError()
+# This import patches over some bugs in scikit-learn
+from . import patches  # @UnusedImport
+from toolz.curried import valfilter
+from sklearn2code.sym.base import sym_transform, sym_decision_function,\
+    sym_predict, sym_score_to_decision, sym_score_to_proba
 
 def never_stop_early(**kwargs):
     return False
@@ -134,17 +28,10 @@ class NIterationsWithoutImprovementOverThreshold(object):
         if len(losses) <= self.n:
             return False
         return all(map(curry(__lt__)(-self.threshold), starmap(self.stat, sliding_window(2, losses[-(self.n+1):]))))
+
 @curry
 def stop_after_n_iterations_without_stat_improvement_over_threshold(stat, n, threshold=0.):
     return NIterationsWithoutImprovementOverThreshold(stat, n, threshold)
-#     def _stop_after_n_iterations_without_improvement(losses, **kwargs):
-#         if len(losses) <= n:
-#             return False
-#         return all(map(curry(__lt__)(-threshold), starmap(stat, sliding_window(2, losses[-(n+1):]))))
-#     return _stop_after_n_iterations_without_improvement
-
-def reduction(before, after):
-    return after - before
 
 stop_after_n_iterations_without_improvement_over_threshold = stop_after_n_iterations_without_stat_improvement_over_threshold(flip(__sub__))
 
@@ -153,23 +40,7 @@ def percent_reduction(before, after):
 
 stop_after_n_iterations_without_percent_improvement_over_threshold = stop_after_n_iterations_without_stat_improvement_over_threshold(percent_reduction)
 
-# class GradientDescentRegressor(STSimpleEstimator):
-#     def __init__(self, loss_function, initial_value=0.):
-#         self.loss_function = loss_function
-#     
-#     def fit(self, X, y, sample_weight=None):
-#         intercept = self.initial_value
-#         coef = np.zeros(X.shape[1])
-#         prediction = intercept + np.dot(X, coef)
-#         gradient_args = {'y':y, 'pred':prediction}
-#         while True:
-#             gradient = self.loss_function.negative_gradient(**valmap(shrinkd(1), gradient_args))
-#             linear_model = LinearRegression().fit(X, gradient)
-#             approx_gradient = linear_model.predict(X)
-#             
-        
-
-class GradientBoostingEstimator(BaseDelegatingEstimator):
+class GradientBoostingEstimator(BaseEstimator):
     def __init__(self, base_estimator, loss_function, learning_rate=.1, n_estimators=100,
                  stopper=never_stop_early, verbose=0):
         self.base_estimator = base_estimator
@@ -254,11 +125,8 @@ class GradientBoostingEstimator(BaseDelegatingEstimator):
             coefficients.append(alpha)
             estimators.append(estimator)
             losses.append(loss)
-#                 losses_cv.append(loss_cv)
             if self.verbose >= 1:
                 print('Loss after %d iterations is %f, a reduction of %f%%.' % (iteration + 1, loss, 100*(previous_loss - loss)/float(previous_loss)))
-#                 if loss_cv != loss:
-#                     print('Cross-validated loss after %d iterations is %f, a reduction of %f%%.' % (iteration + 1, loss_cv, 100*(previous_loss_cv - loss_cv)/float(previous_loss_cv)))
                 print('Checking early stopping condition for estimator %d...' % (iteration + 1))
             
             if self.stopper(iteration=iteration, coefficients=coefficients, losses=losses, 
@@ -274,10 +142,8 @@ class GradientBoostingEstimator(BaseDelegatingEstimator):
         self.coefficients_ = coefficients
         self.estimators_ = estimators
         self.losses_ = losses
-#         self.losses_cv_ = losses_cv
         self.score_ = (self.initial_loss_ - loss) / self.initial_loss_
         self.estimator_ = LinearCombination(self.estimators_, self.coefficients_)
-        self._create_delegates('estimator', ['syms'])
         return self
     
     def statistic_over_steps(self, X, y, statistic, exposure=None):
@@ -304,37 +170,47 @@ class GradientBoostingEstimator(BaseDelegatingEstimator):
     def transform(self, X, exposure=None):
         if not hasattr(self, 'estimator_'):
             raise NotFittedError()
-        args = self._process_args(X=X, exposure=exposure)
-        return np.concatenate([est.transform(**args) for est in self.estimators_[1:]], axis=1)
+        return self.estimator_.transform(X=X, exposure=exposure)
     
-    def predict(self, X, exposure=None):
+    def sym_transform(self):
         if not hasattr(self, 'estimator_'):
             raise NotFittedError()
-        pred_args = self._process_args(X=X, exposure=exposure)
-        score = self.estimator_.predict(**pred_args)
+        return sym_transform(self.estimator_)
+    
+    def predict(self, X, exposure=None):
+        score = self.sym_decision_function(X=X, exposure=exposure)
         if hasattr(self.loss_function, '_score_to_decision'):
             return self.loss_function._score_to_decision(score)
         else:
             return score
     
+    def sym_predict(self):
+        score = self.sym_decision_function()
+        score_to_decision = sym_score_to_decision(self.loss_function)
+        return score_to_decision.compose(score)
+    
     def predict_proba(self, X, exposure=None):
-        if not hasattr(self, 'estimator_'):
-            raise NotFittedError()
-        if hasattr(self.loss_function, '_score_to_proba'):
-            pred_args = self._process_args(X=X, exposure=exposure)
-            score = self.estimator_.predict(**pred_args)
-            return self.loss_function._score_to_proba(score)
-        else:
+        if not hasattr(self.loss_function, '_score_to_proba'):
             raise AttributeError()
+        score = self.sym_decision_function(X=X, exposure=exposure)
+        return self.loss_function._score_to_proba(score)
+    
+    def sym_predict_proba(self):
+        score = self.sym_decision_function()
+        score_to_proba = sym_score_to_proba(self.loss_function)
+        return score_to_proba.compose(score)
     
     def decision_function(self, X, exposure=None):
-        if not hasattr(self.loss_function, '_score_to_decision'):
-            raise AttributeError()
         if not hasattr(self, 'estimator_'):
             raise NotFittedError()
-        pred_args = self._process_args(X=X, exposure=exposure)
+        pred_args = valmap(growd(2), valfilter(notnone, dict(X=X, exposure=exposure)))
         score = self.estimator_.predict(**pred_args)
         return score
+    
+    def sym_decision_function(self):
+        if not hasattr(self, 'estimator_'):
+            raise NotFittedError()
+        return sym_predict(self.estimator_)
     
     @property
     def _estimator_type(self):

@@ -9,5 +9,5 @@ setup(name='booster',
       author='Jason Rudy',
       author_email='jcrudy@gmail.com',
       packages=find_packages(),
-      install_requires = ['scikit-learn']
+      install_requires = ['scikit-learn', 'toolz', 'sklearntoolsbase', 'sklearn2code']
      )

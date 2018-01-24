@@ -7,6 +7,9 @@ dependencies:
     - scikit-learn
     - six
     - pandas
+    - networkx
     - pip:
         - toolz
         - sklearn-contrib-py-earth
+        - git+ssh://git@github.com:jcrudy/sklearn2code.git
+        - git+ssh://git@github.com:jcrudy/sklearntoolsbase.git

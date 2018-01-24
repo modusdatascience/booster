@@ -9,10 +9,11 @@ from sklearn.cross_validation import train_test_split
 from sklearn.exceptions import NotFittedError
 from sklearn.datasets.samples_generator import make_classification
 from nose import SkipTest
-from booster.booster import SmoothQuantileLossFunction, log_one_plus_exp_x,\
-    one_over_one_plus_exp_x, GradientBoostingEstimator,\
+from booster.booster import GradientBoostingEstimator,\
     stop_after_n_iterations_without_percent_improvement_over_threshold
 from pyearth.earth import Earth
+from booster.loss_functions import SmoothQuantileLossFunction,\
+    log_one_plus_exp_x, one_over_one_plus_exp_x
 
 def test_smooth_quantile_loss_function():
     np.random.seed(0)
