@@ -9,7 +9,7 @@ from sklearn.cross_validation import train_test_split
 from sklearn.exceptions import NotFittedError
 from sklearn.datasets.samples_generator import make_classification
 from nose import SkipTest
-from booster.booster import GradientBoostingEstimator,\
+from booster.booster import Booster,\
     stop_after_n_iterations_without_percent_improvement_over_threshold
 from pyearth.earth import Earth
 from booster.loss_functions import SmoothQuantileLossFunction,\
@@ -42,7 +42,7 @@ def test_gradient_boosting_estimator_with_binomial_deviance_loss():
     np.random.seed(0)
     X, y = make_classification(n_classes=2)
     loss_function = BinomialDeviance(2)
-    model = GradientBoostingEstimator(Earth(max_degree=2, use_fast=True, max_terms=10), loss_function)
+    model = Booster(Earth(max_degree=2, use_fast=True, max_terms=10), loss_function)
     model.fit(X, y)
     assert_greater(np.sum(model.predict(X)==y) / float(y.shape[0]), .90)
     assert_true(np.all(0<=model.predict_proba(X)))
@@ -62,7 +62,7 @@ def test_gradient_boosting_estimator_with_smooth_quantile_loss():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.33333333333333)
     loss_function = SmoothQuantileLossFunction(1, p, .0001)
     q_loss = QuantileLossFunction(1, p)
-    model = GradientBoostingEstimator(BaggingRegressor(Earth(max_degree=2, verbose=False, use_fast=True, max_terms=10)), 
+    model = Booster(BaggingRegressor(Earth(max_degree=2, verbose=False, use_fast=True, max_terms=10)), 
                                       loss_function, n_estimators=150, 
                                       stopper=stop_after_n_iterations_without_percent_improvement_over_threshold(3, .01), verbose=True)
     assert_raises(NotFittedError, lambda : model.predict(X_train))

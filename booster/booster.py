@@ -40,7 +40,7 @@ def percent_reduction(before, after):
 
 stop_after_n_iterations_without_percent_improvement_over_threshold = stop_after_n_iterations_without_stat_improvement_over_threshold(percent_reduction)
 
-class GradientBoostingEstimator(BaseEstimator):
+class Booster(BaseEstimator):
     def __init__(self, base_estimator, loss_function, learning_rate=.1, n_estimators=100,
                  stopper=never_stop_early, verbose=0):
         self.base_estimator = base_estimator
@@ -178,7 +178,7 @@ class GradientBoostingEstimator(BaseEstimator):
         return sym_transform(self.estimator_)
     
     def predict(self, X, exposure=None):
-        score = self.sym_decision_function(X=X, exposure=exposure)
+        score = self.decision_function(X=X, exposure=exposure)
         if hasattr(self.loss_function, '_score_to_decision'):
             return self.loss_function._score_to_decision(score)
         else:
@@ -192,7 +192,7 @@ class GradientBoostingEstimator(BaseEstimator):
     def predict_proba(self, X, exposure=None):
         if not hasattr(self.loss_function, '_score_to_proba'):
             raise AttributeError()
-        score = self.sym_decision_function(X=X, exposure=exposure)
+        score = self.decision_function(X=X, exposure=exposure)
         return self.loss_function._score_to_proba(score)
     
     def sym_predict_proba(self):
