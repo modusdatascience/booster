@@ -14,6 +14,7 @@ from . import patches  # @UnusedImport
 from toolz.curried import valfilter
 from sklearn2code.sym.base import sym_transform, sym_decision_function,\
     sym_predict, sym_score_to_decision, sym_score_to_proba
+from sklearn2code.utilty import xlabels
 
 def never_stop_early(**kwargs):
     return False
@@ -65,6 +66,7 @@ class Booster(BaseEstimator):
         if previous_prediction is None:
             initial_estimator = self.loss_function.init_estimator()
             initial_estimator.fit(**fit_args)
+            initial_estimator.xlabels_ = xlabels(X)
             coefficients.append(1.)
             estimators.append(initial_estimator)
         predict_args = {'X':X}
@@ -210,7 +212,8 @@ class Booster(BaseEstimator):
     def sym_decision_function(self):
         if not hasattr(self, 'estimator_'):
             raise NotFittedError()
-        return sym_predict(self.estimator_)
+        score = sym_predict(self.estimator_)
+        return score
     
     @property
     def _estimator_type(self):

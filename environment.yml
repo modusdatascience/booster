@@ -8,6 +8,7 @@ dependencies:
     - six
     - pandas
     - networkx
+    - mako
     - pip:
         - toolz
         - sklearn-contrib-py-earth

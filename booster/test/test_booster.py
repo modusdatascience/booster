@@ -14,6 +14,11 @@ from booster.booster import Booster,\
 from pyearth.earth import Earth
 from booster.loss_functions import SmoothQuantileLossFunction,\
     log_one_plus_exp_x, one_over_one_plus_exp_x
+from sklearn2code.sklearn2code import sklearn2code
+from sklearn2code.utilty import exec_module
+from sklearn2code.languages import numpy_flat
+from sklearntoolsbase.assertions import assert_correct_exported_module
+from pandas import DataFrame
 
 def test_smooth_quantile_loss_function():
     np.random.seed(0)
@@ -79,7 +84,18 @@ def test_gradient_boosting_estimator_with_smooth_quantile_loss():
     assert_less(np.abs(q-p), .05)
     assert_greater(model.score_, 0.)
     assert_approx_equal(model.score(X_train, y_train), model.score_)
-    
+
+def test_sklearn2code_export():
+    np.random.seed(0)
+    X, y = make_classification(n_classes=2)
+    X = DataFrame(X, columns=['x%d' % i for i in range(X.shape[1])])
+    loss_function = BinomialDeviance(2)
+    model = Booster(Earth(max_degree=2, use_fast=True, max_terms=10), loss_function)
+    model.fit(X, y)
+    code = sklearn2code(model, ['predict', 'predict_proba', 'transform'], numpy_flat)
+    module = exec_module('test_module', code)
+    assert_correct_exported_module(model, module, ['predict', 'predict_proba', 'transform'], dict(X=X), X)
+
 if __name__ == '__main__':
     import sys
     import nose
