@@ -15,7 +15,7 @@ from pyearth.earth import Earth
 from booster.loss_functions import SmoothQuantileLossFunction,\
     log_one_plus_exp_x, one_over_one_plus_exp_x
 from sklearn2code.sklearn2code import sklearn2code
-from sklearn2code.utilty import exec_module
+from sklearn2code.utility import exec_module
 from sklearn2code.languages import numpy_flat
 from sklearntoolsbase.assertions import assert_correct_exported_module
 from pandas import DataFrame

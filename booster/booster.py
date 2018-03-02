@@ -14,7 +14,8 @@ from . import patches  # @UnusedImport
 from toolz.curried import valfilter
 from sklearn2code.sym.base import sym_transform, sym_decision_function,\
     sym_predict, sym_score_to_decision, sym_score_to_proba
-from sklearn2code.utilty import xlabels
+from sklearn2code.utility import xlabels
+import numpy as np
 
 def never_stop_early(**kwargs):
     return False
@@ -60,7 +61,10 @@ class Booster(BaseEstimator):
             fit_args['exposure'] = shrinkd(1, exposure)
 #         self._process_args(X=X, y=y, sample_weight=sample_weight, 
 #                                       exposure=exposure)
-        y = growd(2,y)
+        if self._estimator_type == 'classifier':
+            self.classes_, y = np.unique(growd(2,y), return_inverse=True)
+        else:
+            self.y = growd(2,y)
         coefficients = []
         estimators = []
         if previous_prediction is None:
