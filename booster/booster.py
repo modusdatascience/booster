@@ -59,8 +59,6 @@ class Booster(BaseEstimator):
             fit_args['sample_weight'] = shrinkd(1, sample_weight)
         if exposure is not None:
             fit_args['exposure'] = shrinkd(1, exposure)
-#         self._process_args(X=X, y=y, sample_weight=sample_weight, 
-#                                       exposure=exposure)
         if self._estimator_type == 'classifier':
             self.classes_, y = np.unique(growd(2,y), return_inverse=True)
         else:
@@ -81,7 +79,6 @@ class Booster(BaseEstimator):
         else:
             prediction = previous_prediction.copy()
             
-#         prediction_cv = prediction.copy()
         gradient_args = {'y':y, 'pred':prediction}
         if sample_weight is not None:
             gradient_args['sample_weight': sample_weight]
@@ -96,16 +93,13 @@ class Booster(BaseEstimator):
         loss_function = lambda pred: self.loss_function(pred=shrinkd(1, pred), **valmap(shrinkd(1), partial_arguments))
         self.initial_loss_ = loss_function(prediction)
         loss = self.initial_loss_
-#         loss_cv = loss
         losses = [self.initial_loss_]
-#         losses_cv = [self.initial_loss_]
         predict_args = {'X': X}
         if exposure is not None:
             predict_args['exposure'] = shrinkd(1, exposure)
         self.early_stop_ = False
         for iteration in range(self.n_estimators):
             previous_loss = loss
-#             previous_loss_cv = loss_cv
             if self.verbose >= 1:
                 print('Fitting estimator %d...' % (iteration + 1))
             fit_args['y'] = shrinkd(1, gradient)
@@ -118,7 +112,6 @@ class Booster(BaseEstimator):
                 print('Fitting for estimator %d complete.' % (iteration + 1))
             if self.verbose >= 1:
                 print('Computing alpha for estimator %d...' % (iteration + 1))
-#                 alpha, _, _, _, _, _ = line_search(loss_function, loss_grad, shrinkd(1, prediction), shrinkd(1,gradient))
             alpha = zoom_search(golden_section_search(1e-16), zoom(1., 20, 2.), loss_function, prediction, approx_gradient)
             alpha *= self.learning_rate
             if self.verbose >= 1:
