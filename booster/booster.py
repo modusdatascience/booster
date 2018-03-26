@@ -13,7 +13,7 @@ from sklearntoolsbase.sklearntoolsbase import growd, shrinkd,\
 from . import patches  # @UnusedImport
 from toolz.curried import valfilter
 from sklearn2code.sym.base import sym_transform, sym_decision_function,\
-    sym_predict, sym_score_to_decision, sym_score_to_proba
+    sym_predict, sym_score_to_decision, sym_score_to_proba, syms
 from sklearn2code.utility import xlabels
 import numpy as np
 
@@ -172,6 +172,9 @@ class Booster(BaseEstimator):
         initial_prediction = shrinkd(1, self.coefficients_[0] * self.estimators_[0].predict(**predict_arguments))
         initial_loss = loss_function(initial_prediction)
         return (initial_loss - loss) / initial_loss
+    
+    def syms(self):
+        return syms(self.estimator_)
     
     def transform(self, X, exposure=None):
         if not hasattr(self, 'estimator_'):
